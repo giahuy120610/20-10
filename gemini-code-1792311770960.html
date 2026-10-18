@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Một chút dev cho 20/10</title>
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #050a14;
+      font-family: 'Quicksand', sans-serif;
+      color: #e6f4ff;
+      transition: background 1.2s ease;
+    }
+
+    /* Các màu nền theo từng màn */
+    body.theme-default {
+      background: radial-gradient(circle at 50% 42%, #0c2b3b 0%, #050a14 70%);
+    }
+    body.theme-blush {
+      background: radial-gradient(circle at 50% 38%, #4a1259 0%, #1c0526 75%);
+    }
+    body.theme-meadow {
+      background: radial-gradient(circle at 50% 38%, #0d3838 0%, #06151f 75%);
+    }
+    body.theme-stars {
+      background: radial-gradient(circle at 50% 35%, #2f1152 0%, #120424 80%);
+    }
+    body.theme-clover {
+      background: radial-gradient(circle at 50% 42%, #0c4d26 0%, #031c0d 78%);
+    }
+
+    /* Ánh đèn spotlight ở màn 3 (bắt tim) */
+    .spotlight {
+      position: fixed;
+      top: 40%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 260px;
+      height: 60vh;
+      background: linear-gradient(180deg, rgba(255, 160, 110, 0.22) 0%, rgba(255, 120, 80, 0.05) 70%, transparent 100%);
+      clip-path: polygon(25% 0%, 75% 0%, 100% 100%, 0% 100%);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 1s ease;
+      z-index: 1;
+    }
+    body.theme-blush .spotlight {
+      opacity: 1;
+    }
+
+    /* Canvas hiệu ứng hạt bokeh */
+    #particleCanvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* Thanh chấm tiến trình phía trên */
+    .top-bar {
+      position: fixed;
+      top: 22px;
+      left: 0;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 20;
+    }
+
+    .progress-dots {
+      display: flex;
+      gap: 7px;
+      align-items: center;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 99px;
+      background: rgba(255, 255, 255, 0.22);
+      transition: all 0.4s ease;
+    }
+    .dot.done {
+      background: #2b8aff;
+      box-shadow: 0 0 8px rgba(43, 138, 255, 0.6);
+    }
+    .dot.active {
+      width: 24px;
+      background: #2b8aff;
+      box-shadow: 0 0 10px rgba(43, 138, 255, 0.9);
+    }
+
+    /* Cụm nút nhạc & hiệu ứng góc phải trên */
+    .top-right-controls {
+      position: fixed;
+      top: 14px;
+      right: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 10px;
+      z-index: 25;
+    }
+
+    .music-btn {
+      width: 46px;
+      height: 36px;
+      border-radius: 18px;
+      background: rgba(15, 25, 42, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+    }
+
+    .music-bar {
+      width: 3px;
+      height: 6px;
+      background: #d8ecff;
+      border-radius: 2px;
+      transition: height 0.2s ease;
+    }
+    .music-btn.playing .music-bar:nth-child(1) { animation: eq 0.6s infinite ease-in-out 0.1s; }
+    .music-btn.playing .music-bar:nth-child(2) { animation: eq 0.5s infinite ease-in-out 0.25s; }
+    .music-btn.playing .music-bar:nth-child(3) { animation: eq 0.7s infinite ease-in-out 0.15s; }
+    .music-btn.playing .music-bar:nth-child(4) { animation: eq 0.55s infinite ease-in-out 0.3s; }
+
+    @keyframes eq {
+      0%, 100% { height: 5px; }
+      50% { height: 16px; }
+    }
+
+    .fx-btn {
+      padding: 6px 14px;
+      border-radius: 16px;
+      background: rgba(15, 25, 42, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #b8cde0;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+    }
+
+    /* Khu vực trung tâm: Mắt Pi và lời thoại */
+    .stage-center {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      padding: 0 28px;
+      text-align: center;
+    }
+
+    /* Đôi mắt của Pi */
+    .pi-face {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 34px;
+      cursor: pointer;
+      transition: opacity 0.5s ease, transform 0.4s ease;
+    }
+
+    .eyes-row {
+      display: flex;
+      gap: 24px;
+      align-items: center;
+      justify-content: center;
+      height: 82px;
+    }
+
+    .eye {
+      width: 72px;
+      height: 72px;
+      background: radial-gradient(circle at 50% 45%, #b5ffff 0%, #3ff0ff 65%, #19c3db 100%);
+      border-radius: 18px;
+      box-shadow:
+        0 0 25px rgba(63, 240, 255, 0.75),
+        0 0 60px rgba(63, 240, 255, 0.35);
+      transition: all 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+      position: relative;
+    }
+
+    /* Trạng thái ngủ ban đầu */
+    .pi-face.sleeping .eye {
+      height: 32px;
+      border-radius: 40px 40px 10px 10px;
+      background: rgba(88, 196, 212, 0.38);
+      box-shadow: 0 0 15px rgba(88, 196, 212, 0.2);
+      transform: translateY(10px);
+    }
+
+    /* Trạng thái chớp mắt */
+    .pi-face.blink .eye {
+      height: 8px;
+      border-radius: 8px;
+    }
+
+    /* Trạng thái mắt cười cong (hạnh phúc / ngại ngùng) */
+    .pi-face.happy .eye {
+      height: 32px;
+      border-radius: 42px 42px 10px 10px;
+      background: linear-gradient(180deg, #99ffff 0%, #38ecff 100%);
+      box-shadow:
+        0 -4px 24px rgba(63, 240, 255, 0.8),
+        0 0 45px rgba(63, 240, 255, 0.35);
+    }
+
+    /* Má hồng //// //// */
+    .blush-row {
+      display: flex;
+      gap: 54px;
+      margin-top: 6px;
+      height: 20px;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+    .pi-face.blushing .blush-row {
+      opacity: 1;
+    }
+    .blush-marks {
+      color: #ff5c93;
+      font-weight: 700;
+      font-size: 16px;
+      letter-spacing: 3px;
+      text-shadow: 0 0 8px rgba(255, 92, 147, 0.7);
+    }
+
+    /* Nốt nhạc bay lên khi thức dậy */
+    .floating-note {
+      position: absolute;
+      right: -32px;
+      top: 10px;
+      color: rgba(140, 235, 255, 0.65);
+      font-size: 26px;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .floating-note.show {
+      animation: floatNote 2.4s ease-out forwards;
+    }
+    @keyframes floatNote {
+      0% { opacity: 0; transform: translateY(10px) rotate(-10deg) scale(0.8); }
+      30% { opacity: 0.85; }
+      100% { opacity: 0; transform: translateY(-35px) rotate(15deg) scale(1.1); }
+    }
+
+    /* Khung văn bản chữ chạy */
+    .dialog-wrap {
+      min-height: 95px;
+      max-width: 340px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+    }
+
+    .dialog-text {
+      font-size: 19px;
+      line-height: 1.5;
+      font-weight: 600;
+      color: #e4f2ff;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+      transition: filter 0.45s ease, opacity 0.45s ease, transform 0.45s ease;
+    }
+
+    .dialog-text.sleeping-hint {
+      color: rgba(170, 200, 225, 0.48);
+      font-size: 18px;
+    }
+
+    /* Hiệu ứng nhòe chữ khi chuyển câu */
+    .dialog-text.blur-out {
+      filter: blur(7px);
+      opacity: 0;
+      transform: scale(0.97);
+    }
+
+    /* Con trỏ nhấp nháy màu xanh cyan */
+    .cursor {
+      display: inline-block;
+      width: 9px;
+      height: 19px;
+      background: #42f5ff;
+      vertical-align: -3px;
+      margin-left: 4px;
+      box-shadow: 0 0 8px #42f5ff;
+      animation: blinkCursor 0.7s infinite;
+    }
+    @keyframes blinkCursor {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    /* Màu chữ nhấn mạnh */
+    .hl-pink {
+      color: #ff6ea7;
+      text-shadow: 0 0 10px rgba(255, 110, 167, 0.45);
+    }
+    .hl-green {
+      color: #54ff9f;
+      text-shadow: 0 0 10px rgba(84, 255, 159, 0.45);
+    }
+
+    /* Dòng hướng dẫn phụ / bộ đếm phía dưới câu thoại */
+    .sub-hint {
+      margin-top: 26px;
+      font-size: 16px;
+      color: rgba(210, 230, 248, 0.55);
+      font-weight: 600;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+    .sub-hint.visible {
+      opacity: 1;
+    }
+
+    /* Khu vực chứa vật phẩm tương tác (tim, sao, cỏ, cỏ 4 lá) */
+    .interactive-layer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 15;
+    }
+
+    /* Trái tim bay ở Màn 3 */
+    .floating-heart {
+      position: absolute;
+      width: 48px;
+      height: 48px;
+      pointer-events: auto;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: floatHeart 3s ease-in-out infinite alternate;
+      transition: transform 0.2s ease, opacity 0.3s ease;
+    }
+    .floating-heart svg {
+      width: 40px;
+      height: 40px;
+      fill: #ff5e97;
+      stroke: #ffc2d9;
+      stroke-width: 2;
+      filter: drop-shadow(0 0 12px rgba(255, 94, 151, 0.85));
+    }
+    @keyframes floatHeart {
+      0% { transform: translateY(0px) scale(0.96); }
+      100% { transform: translateY(-14px) scale(1.06); }
+    }
+
+    /* Đồng cỏ ở Màn 4 */
+    .meadow-container {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 210px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.8s ease;
+      z-index: 14;
+    }
+    .meadow-container.active {
+      opacity: 1;
+      pointer-events: auto;
+      cursor: pointer;
+    }
+
+    .grass-blade {
+      position: absolute;
+      bottom: -8px;
+      width: 4px;
+      background: linear-gradient(180deg, #4aff3b 0%, #129919 100%);
+      border-radius: 6px 6px 0 0;
+      transform-origin: bottom center;
+      box-shadow: 0 0 6px rgba(74, 255, 59, 0.35);
+      animation: swayGrass 3.2s ease-in-out infinite alternate;
+    }
+    @keyframes swayGrass {
+      0% { transform: rotate(-7deg); }
+      100% { transform: rotate(8deg); }
+    }
+
+    /* Bông hoa mọc lên khi chạm vào cỏ */
+    .bloomed-flower {
+      position: absolute;
+      bottom: 0;
+      transform-origin: bottom center;
+      animation: growFlower 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+      pointer-events: none;
+    }
+    @keyframes growFlower {
+      0% { transform: scale(0) translateY(30px); opacity: 0; }
+      100% { transform: scale(1) translateY(0); opacity: 1; }
+    }
+
+    /* 3 Ngôi sao điều ước ở Màn 5 */
+    .stars-container {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 16;
+    }
+    .constellation-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+    .constellation-line {
+      stroke: rgba(255, 228, 132, 0.65);
+      stroke-width: 2;
+      stroke-dasharray: 200;
+      stroke-dashoffset: 200;
+      transition: stroke-dashoffset 0.7s ease;
+      filter: drop-shadow(0 0 6px rgba(255, 225, 110, 0.8));
+    }
+    .constellation-line.drawn {
+      stroke-dashoffset: 0;
+    }
+
+    .wish-star {
+      position: absolute;
+      width: 68px;
+      height: 68px;
+      transform: translate(-50%, -50%) scale(0);
+      pointer-events: auto;
+      cursor: pointer;
+      transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.4s ease;
+    }
+    .wish-star.show {
+      transform: translate(-50%, -50%) scale(1);
+    }
+    .wish-star svg {
+      width: 100%;
+      height: 100%;
+      fill: rgba(215, 190, 110, 0.65);
+      stroke: rgba(255, 238, 170, 0.8);
+      stroke-width: 1.5;
+      transition: all 0.4s ease;
+    }
+    .wish-star.lit svg {
+      fill: #ffeb7a;
+      stroke: #ffffff;
+      filter: drop-shadow(0 0 18px rgba(255, 235, 120, 0.95));
+    }
+
+    /* Cỏ 4 lá ở Màn 6 */
+    .clover-wrapper {
+      position: fixed;
+      right: 16%;
+      bottom: 24%;
+      width: 110px;
+      height: 130px;
+      pointer-events: none;
+      opacity: 0;
+      transform: scale(0.5);
+      transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+      z-index: 18;
+    }
+    .clover-wrapper.show {
+      opacity: 1;
+      transform: scale(1);
+      pointer-events: auto;
+      cursor: pointer;
+    }
+    .clover-wrapper.holding {
+      animation: pulseClover 0.35s infinite alternate;
+    }
+    @keyframes pulseClover {
+      0% { transform: scale(1.02); filter: drop-shadow(0 0 18px #4dff88); }
+      100% { transform: scale(1.14); filter: drop-shadow(0 0 32px #80ffaa); }
+    }
+
+    /* Hiệu ứng icon bung ra khi tương tác */
+    .pop-item {
+      position: fixed;
+      pointer-events: none;
+      z-index: 30;
+      font-size: 22px;
+      animation: popAnim 1s ease-out forwards;
+    }
+    @keyframes popAnim {
+      0% { opacity: 1; transform: translate(-50%, -50%) scale(0.5); }
+      100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.25); }
+    }
+  </style>
+</head>
+<body class="theme-default">
+
+  <!-- Ánh đèn sân khấu ở màn 3 -->
+  <div class="spotlight"></div>
+
+  <!-- Canvas hạt bokeh bay lơ lửng -->
+  <canvas id="particleCanvas"></canvas>
+
+  <!-- Thanh tiến trình 7 chấm ở trên cùng -->
+  <div class="top-bar">
+    <div class="progress-dots" id="progressDots">
+      <div class="dot active"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+    </div>
+  </div>
+
+  <!-- Nút bật/tắt nhạc và hiệu ứng góc trên bên phải -->
+  <div class="top-right-controls">
+    <button class="music-btn" id="musicBtn" aria-label="Bật/Tắt nhạc">
+      <div class="music-bar"></div>
+      <div class="music-bar"></div>
+      <div class="music-bar"></div>
+      <div class="music-bar"></div>
+    </button>
+    <button class="fx-btn" id="fxBtn">Hiệu ứng: bật</button>
+  </div>
+
+  <!-- Trung tâm màn hình: Mắt Pi + Lời thoại -->
+  <div class="stage-center" id="stageCenter">
+    <div class="pi-face sleeping" id="piFace">
+      <div class="floating-note" id="floatingNote">♪</div>
+      <div class="eyes-row">
+        <div class="eye" id="leftEye"></div>
+        <div class="eye" id="rightEye"></div>
+      </div>
+      <div class="blush-row">
+        <span class="blush-marks">////</span>
+        <span class="blush-marks">////</span>
+      </div>
+    </div>
+
+    <div class="dialog-wrap">
+      <div class="dialog-text sleeping-hint" id="dialogText">
+        Pi đang ngủ... chạm vào đâu đó để đánh thức nhé
+      </div>
+      <div class="sub-hint" id="subHint"></div>
+    </div>
+  </div>
+
+  <!-- Lớp tương tác: Trái tim, Ngôi sao, Đồng cỏ, Cỏ 4 lá -->
+  <div class="interactive-layer" id="interactiveLayer"></div>
+
+  <div class="stars-container" id="starsContainer">
+    <svg class="constellation-svg" id="constellationSvg">
+      <line class="constellation-line" id="line1" x1="22%" y1="30%" x2="48%" y2="20%" />
+      <line class="constellation-line" id="line2" x1="48%" y1="20%" x2="77%" y2="29%" />
+    </svg>
+  </div>
+
+  <div class="meadow-container" id="meadowContainer"></div>
+
+  <!-- Cỏ 4 lá ở màn 6 -->
+  <div class="clover-wrapper" id="cloverWrapper">
+    <svg viewBox="0 0 120 140" width="100%" height="100%">
+      <defs>
+        <radialGradient id="leafGrad" cx="50%" cy="50%" r="55%">
+          <stop offset="0%" stop-color="#6bff9c" />
+          <stop offset="100%" stop-color="#19b851" />
+        </radialGradient>
+      </defs>
+      <!-- Cuống lá -->
+      <path d="M60 70 Q58 105 42 132" stroke="#39e673" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <!-- 4 cánh lá hình trái tim -->
+      <path d="M60 62 C45 32, 15 42, 36 62 C15 82, 45 92, 60 62 Z" fill="url(#leafGrad)" stroke="#a6ffc4" stroke-width="1.5" opacity="0.92"/>
+      <path d="M60 62 C75 32, 105 42, 84 62 C105 82, 75 92, 60 62 Z" fill="url(#leafGrad)" stroke="#a6ffc4" stroke-width="1.5" opacity="0.92"/>
+      <path d="M60 62 C30 47, 40 15, 60 36 C80 15, 90 47, 60 62 Z" fill="url(#leafGrad)" stroke="#a6ffc4" stroke-width="1.5" opacity="0.92"/>
+      <path d="M60 62 C30 77, 40 109, 60 88 C80 109, 90 77, 60 62 Z" fill="url(#leafGrad)" stroke="#a6ffc4" stroke-width="1.5" opacity="0.92"/>
+      <circle cx="60" cy="62" r="3.5" fill="#d4ffe2" />
+    </svg>
+  </div>
+
+  <script>
+    // ==========================================
+    // CẤU HÌNH TÊN NGƯỜI GỬI (Đã đổi thành Gia Huy)
+    // ==========================================
+    const SENDER_NAME = "Gia Huy";
+
+    // ==========================================
+    // HỆ THỐNG ÂM THANH PIANO DỊU ÊM (Web Audio API)
+    // ==========================================
+    let audioCtx = null;
+    let musicPlaying = false;
+    let melodyTimer = null;
+
+    const MELODY_NOTES = [
+      261.63, 329.63, 392.00, 523.25, 392.00, 329.63,
+      220.00, 261.63, 329.63, 440.00, 329.63, 261.63,
+      174.61, 220.00, 261.63, 349.23, 261.63, 220.00,
+      196.00, 246.94, 293.66, 392.00, 293.66, 246.94
+    ];
+    let noteIndex = 0;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playPianoNote(freq, duration = 1.4, volume = 0.055) {
+      if (!musicPlaying || !audioCtx) return;
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now);
+
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.exponentialRampToValueAtTime(volume, now + 0.06);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + duration);
+    }
+
+    function playChimeSound(freq = 660) {
+      if (!audioCtx || !musicPlaying) return;
+      playPianoNote(freq, 0.5, 0.08);
+    }
+
+    function startBackgroundMusic() {
+      initAudio();
+      if (musicPlaying) return;
+      musicPlaying = true;
+      document.getElementById('musicBtn').classList.add('playing');
+      melodyTimer = setInterval(() => {
+        if (!musicPlaying) return;
+        const freq = MELODY_NOTES[noteIndex % MELODY_NOTES.length];
+        playPianoNote(freq, 1.6, 0.05);
+        if (noteIndex % 6 === 0) {
+          playPianoNote(freq * 2, 2.1, 0.025);
+        }
+        noteIndex++;
+      }, 420);
+    }
+
+    function toggleMusic() {
+      if (!audioCtx) {
+        startBackgroundMusic();
+        return;
+      }
+      musicPlaying = !musicPlaying;
+      const btn = document.getElementById('musicBtn');
+      if (musicPlaying) {
+        btn.classList.add('playing');
+      } else {
+        btn.classList.remove('playing');
+      }
+    }
+
+    document.getElementById('musicBtn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleMusic();
+    });
+
+    // ==========================================
+    // HIỆU ỨNG HẠT BOKEH LƠ LỬNG (Canvas)
+    // ==========================================
+    const canvas = document.getElementById('particleCanvas');
+    const ctx = canvas.getContext('2d');
+    let fxEnabled = true;
+    let currentTheme = 'default';
+    let particles = [];
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function createParticles() {
+      particles = [];
+      for (let i = 0; i < 42; i++) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          r: Math.random() * 5 + 2,
+          vx: (Math.random() - 0.5) * 0.4,
+          vy: (Math.random() - 0.5) * 0.4 - 0.15,
+          alpha: Math.random() * 0.55 + 0.15,
+          hue: Math.random() * 60 + 180
+        });
+      }
+    }
+    createParticles();
+
+    function drawParticles() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (fxEnabled) {
+        for (let p of particles) {
+          p.x += p.vx;
+          p.y += p.vy;
+          if (p.x < 0) p.x = canvas.width;
+          if (p.x > canvas.width) p.x = 0;
+          if (p.y < 0) p.y = canvas.height;
+          if (p.y > canvas.height) p.y = 0;
+
+          let color = `hsla(${p.hue}, 85%, 70%, ${p.alpha})`;
+          if (currentTheme === 'blush') {
+            color = `hsla(${320 + (p.hue % 45)}, 90%, 68%, ${p.alpha})`;
+          } else if (currentTheme === 'meadow') {
+            color = `hsla(48, 95%, 65%, ${p.alpha})`;
+          } else if (currentTheme === 'stars') {
+            color = `hsla(265, 80%, 78%, ${p.alpha})`;
+          } else if (currentTheme === 'clover') {
+            color = `hsla(135, 90%, 60%, ${p.alpha})`;
+          }
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.shadowBlur = 12;
+          ctx.shadowColor = color;
+          ctx.fillStyle = color;
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+      requestAnimationFrame(drawParticles);
+    }
+    drawParticles();
+
+    document.getElementById('fxBtn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      fxEnabled = !fxEnabled;
+      document.getElementById('fxBtn').textContent = fxEnabled ? 'Hiệu ứng: bật' : 'Hiệu ứng: tắt';
+    });
+
+    // ==========================================
+    // HIỆU ỨNG MẮT PI DÕI THEO & CHỚP MẮT
+    // ==========================================
+    const piFace = document.getElementById('piFace');
+    const leftEye = document.getElementById('leftEye');
+    const rightEye = document.getElementById('rightEye');
+    const dialogText = document.getElementById('dialogText');
+    const subHint = document.getElementById('subHint');
+    const dots = document.querySelectorAll('#progressDots .dot');
+
+    // Chớp mắt tự động
+    setInterval(() => {
+      if (
+        !piFace.classList.contains('sleeping') &&
+        !piFace.classList.contains('happy')
+      ) {
+        piFace.classList.add('blink');
+        setTimeout(() => piFace.classList.remove('blink'), 140);
+      }
+    }, 3600);
+
+    // Mắt di chuyển nhẹ theo ngón tay / chuột
+    window.addEventListener('pointermove', (e) => {
+      if (piFace.classList.contains('sleeping')) return;
+      const dx = ((e.clientX / window.innerWidth) - 0.5) * 14;
+      const dy = ((e.clientY / window.innerHeight) - 0.5) * 10;
+      leftEye.style.transform = `translate(${dx}px, ${dy}px)`;
+      rightEye.style.transform = `translate(${dx}px, ${dy}px)`;
+    });
+
+    function setProgressDot(stepIndex) {
+      dots.forEach((d, idx) => {
+        d.className = 'dot';
+        if (idx < stepIndex) d.classList.add('done');
+        else if (idx === stepIndex) d.classList.add('active');
+      });
+    }
+
+    function setTheme(themeName) {
+      currentTheme = themeName;
+      document.body.className = `theme-${themeName}`;
+    }
+
+    function spawnPopIcons(x, y, icons = ['✨', '💗', '🌸']) {
+      for (let i = 0; i < 6; i++) {
+        const el = document.createElement('div');
+        el.className = 'pop-item';
+        el.textContent = icons[i % icons.length];
+        el.style.left = `${x}px`;
+        el.style.top = `${y}px`;
+        const angle = (Math.PI * 2 * i) / 6 + Math.random() * 0.5;
+        const dist = 35 + Math.random() * 45;
+        el.style.setProperty('--dx', `${Math.cos(angle) * dist}px`);
+        el.style.setProperty('--dy', `${Math.sin(angle) * dist - 20}px`);
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 1000);
+      }
+    }
+
+    // ==========================================
+    // HÀM CHẠY CHỮ TYPEWRITER + HIỆU ỨNG BLUR
+    // ==========================================
+    const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+
+    async function typeSentence(htmlString, holdMs = 1550, keepAfter = false) {
+      dialogText.classList.remove('sleeping-hint', 'blur-out');
+
+      // Tách thẻ HTML và ký tự thường để gõ từng chữ mượt mà
+      const tokens = [];
+      let i = 0;
+      while (i < htmlString.length) {
+        if (htmlString[i] === '<') {
+          const closeIdx = htmlString.indexOf('>', i);
+          if (closeIdx !== -1) {
+            tokens.push({ type: 'tag', val: htmlString.slice(i, closeIdx + 1) });
+            i = closeIdx + 1;
+            continue;
+          }
+        }
+        tokens.push({ type: 'char', val: htmlString[i] });
+        i++;
+      }
+
+      let currentHtml = '';
+      for (let t of tokens) {
+        currentHtml += t.val;
+        if (t.type === 'char') {
+          dialogText.innerHTML = currentHtml + '<span class="cursor"></span>';
+          await wait(45);
+        }
+      }
+
+      dialogText.innerHTML = currentHtml;
+      await wait(holdMs);
+
+      if (!keepAfter) {
+        dialogText.classList.add('blur-out');
+        await wait(450);
+        dialogText.innerHTML = '';
+        dialogText.classList.remove('blur-out');
+      }
+    }
+
+    // ==========================================
+    // KỊCH BẢN 7 MÀN TƯƠNG TÁC Y HỆT VIDEO
+    // ==========================================
+    let started = false;
+
+    window.addEventListener('pointerdown', () => {
+      if (!started) {
+        started = true;
+        runStage1();
+      }
+    }, { once: true });
+
+    // --- MÀN 1: Đánh thức Pi & chạm vào mắt ---
+    async function runStage1() {
+      setProgressDot(0);
+      startBackgroundMusic();
+
+      piFace.classList.remove('sleeping');
+      document.getElementById('floatingNote').classList.add('show');
+      dialogText.classList.add('blur-out');
+      await wait(450);
+
+      await typeSentence('Ơ... có ai ở đó không vậy?', 1400);
+      await typeSentence('À, là <span class="hl-pink">Cậu</span> hả! Chào <span class="hl-pink">Cậu</span> nha', 1500);
+      await typeSentence('Tớ là <span class="hl-green">Pi</span>, bé robot nhỏ xíu sống trong trang web này nè', 1700);
+      await typeSentence('Cậu thử đưa chuột đến mắt tớ xem, tớ không giận đâu', 500, true);
+
+      subHint.textContent = 'chạm vào mắt Pi nè';
+      subHint.classList.add('visible');
+
+      // Chờ chạm mắt lần 1
+      await waitForEyeTouch();
+      playChimeSound(784);
+      const rect1 = piFace.getBoundingClientRect();
+      spawnPopIcons(rect1.left + rect1.width / 2, rect1.top + 30, ['✨', '🌸', '💫']);
+      piFace.classList.add('happy');
+      subHint.classList.remove('visible');
+
+      dialogText.classList.add('blur-out');
+      await wait(400);
+      piFace.classList.remove('happy');
+      await typeSentence('Á! nhột quá nha', 400, true);
+
+      subHint.textContent = 'chạm thêm lần nữa nè';
+      subHint.classList.add('visible');
+
+      // Chờ chạm mắt lần 2
+      await waitForEyeTouch();
+      playChimeSound(880);
+      const rect2 = piFace.getBoundingClientRect();
+      spawnPopIcons(rect2.left + rect2.width / 2, rect2.top + 25, ['💗', '✨', '💖']);
+      piFace.classList.add('happy');
+      subHint.classList.remove('visible');
+
+      dialogText.classList.add('blur-out');
+      await wait(400);
+      await typeSentence('Hihi thôi mà, đừng chọc nữa', 1300);
+      piFace.classList.remove('happy');
+      await typeSentence('Rồi rồi, tớ chịu thua Cậu', 1400);
+
+      runStage2();
+    }
+
+    function waitForEyeTouch() {
+      return new Promise((resolve) => {
+        const handler = (e) => {
+          e.stopPropagation();
+          piFace.removeEventListener('pointerdown', handler);
+          piFace.removeEventListener('mouseenter', handler);
+          resolve();
+        };
+        piFace.addEventListener('pointerdown', handler);
+        piFace.addEventListener('mouseenter', handler);
+      });
+    }
+
+    // --- MÀN 2: Nhắc tên Gia Huy gửi món quà ---
+    async function runStage2() {
+      setProgressDot(1);
+      await typeSentence('Mà tớ quên mất, hôm nay có người nhờ tớ gửi Cậu một món quà', 1700);
+      await typeSentence(`Người đó là <span class="hl-green">${SENDER_NAME}</span> nè, dặn tớ phải mang thông điệp đến cậu đấy`, 2000);
+      runStage3();
+    }
+
+    // --- MÀN 3: Khen xinh & bắt 5 trái tim ---
+    async function runStage3() {
+      setProgressDot(2);
+      setTheme('blush');
+      piFace.classList.add('happy', 'blushing');
+
+      await typeSentence('Ui... mà Cậu <span class="hl-pink">xinh</span> quá trời luôn á', 1600);
+      await typeSentence('Tớ nhìn mà <span class="hl-pink">tim</span> cũng đập thình thịch nè', 1600);
+      await typeSentence('Cậu giúp tớ bắt mấy trái <span class="hl-pink">tim</span> đang trốn nha', 500, true);
+
+      piFace.classList.remove('happy', 'blushing');
+      await playCatchHeartsGame();
+
+      piFace.classList.add('happy', 'blushing');
+      dialogText.classList.add('blur-out');
+      await wait(400);
+      await typeSentence('Giỏi quá! Cậu bắt hết rồi, tim tớ ấm hẳn lên', 1700);
+      piFace.classList.remove('happy', 'blushing');
+
+      runStage4();
+    }
+
+    function playCatchHeartsGame() {
+      return new Promise((resolve) => {
+        const layer = document.getElementById('interactiveLayer');
+        layer.innerHTML = '';
+        let caught = 0;
+        const total = 5;
+
+        subHint.textContent = `trái tim: 0/${total}`;
+        subHint.classList.add('visible');
+
+        const positions = [
+          { left: '14%', top: '36%' },
+          { left: '80%', top: '26%' },
+          { left: '24%', top: '56%' },
+          { left: '78%', top: '65%' },
+          { left: '84%', top: '42%' }
+        ];
+
+        positions.forEach((pos, idx) => {
+          const h = document.createElement('div');
+          h.className = 'floating-heart';
+          h.style.left = pos.left;
+          h.style.top = pos.top;
+          h.style.animationDelay = `${idx * 0.35}s`;
+          h.innerHTML = `
+            <svg viewBox="0 0 24 24">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5
+                       2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09
+                       C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5
+                       c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+            </svg>`;
+
+          h.addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+            if (h.dataset.clicked) return;
+            h.dataset.clicked = '1';
+            caught++;
+            playChimeSound(600 + caught * 70);
+            spawnPopIcons(e.clientX, e.clientY, ['💖', '✨', '⭐']);
+            h.style.transform = 'scale(0)';
+            h.style.opacity = '0';
+            subHint.textContent = `trái tim: ${caught}/${total}`;
+
+            if (caught === total) {
+              setTimeout(() => {
+                subHint.classList.remove('visible');
+                layer.innerHTML = '';
+                resolve();
+              }, 450);
+            }
+          });
+
+          layer.appendChild(h);
+        });
+      });
+    }
+
+    // --- MÀN 4: Cánh đồng cỏ 20/10 & trồng 3 bông hoa ---
+    async function runStage4() {
+      setProgressDot(3);
+      setTheme('meadow');
+
+      const meadow = document.getElementById('meadowContainer');
+      buildMeadowGrass(meadow);
+      meadow.classList.add('active');
+
+      await typeSentence('À mà... sắp <span class="hl-green">20/10</span> rồi đó', 1500);
+      await typeSentence('Tớ chạy ra đồng cỏ hái hoa tặng Cậu nè', 1600);
+      await typeSentence('Cậu chạm vào đồng cỏ để trồng giúp tớ ba bông hoa nha', 500, true);
+
+      await playPlantFlowersGame(meadow);
+
+      piFace.classList.add('happy');
+      await typeSentence('Cánh đồng này là của Cậu hết đó nha', 1700);
+      piFace.classList.remove('happy');
+
+      meadow.classList.remove('active');
+      setTimeout(() => { meadow.innerHTML = ''; }, 800);
+
+      runStage5();
+    }
+
+    function buildMeadowGrass(container) {
+      container.innerHTML = '';
+      const count = 68;
+      for (let i = 0; i < count; i++) {
+        const blade = document.createElement('div');
+        blade.className = 'grass-blade';
+        blade.style.left = `${(i / count) * 100 + (Math.random() * 1.5 - 0.75)}%`;
+        blade.style.height = `${70 + Math.random() * 95}px`;
+        blade.style.animationDelay = `${Math.random() * 2}s`;
+        container.appendChild(blade);
+      }
+    }
+
+    function playPlantFlowersGame(meadow) {
+      return new Promise((resolve) => {
+        let planted = 0;
+        const total = 3;
+        subHint.textContent = `hoa đã trồng: 0/${total}`;
+        subHint.classList.add('visible');
+
+        const flowerColors = ['#ff66b3', '#ff944d', '#b366ff'];
+
+        const onMeadowTap = async (e) => {
+          if (planted >= total) return;
+          planted++;
+          playChimeSound(550 + planted * 90);
+
+          const x = e.clientX || (window.innerWidth * (0.25 * planted));
+          const color = flowerColors[(planted - 1) % flowerColors.length];
+
+          const flower = document.createElement('div');
+          flower.className = 'bloomed-flower';
+          flower.style.left = `${x - 28}px`;
+          flower.innerHTML = `
+            <svg width="56" height="150" viewBox="0 0 56 150">
+              <path d="M28 150 Q24 100 28 45" stroke="#39e64d" stroke-width="4" fill="none"/>
+              <g transform="translate(28, 42)">
+                <circle cx="0" cy="-14" r="10" fill="${color}" />
+                <circle cx="13" cy="-4" r="10" fill="${color}" />
+                <circle cx="8" cy="11" r="10" fill="${color}" />
+                <circle cx="-8" cy="11" r="10" fill="${color}" />
+                <circle cx="-13" cy="-4" r="10" fill="${color}" />
+                <circle cx="0" cy="0" r="7" fill="#ffe066" />
+              </g>
+            </svg>`;
+          meadow.appendChild(flower);
+          spawnPopIcons(x, window.innerHeight - 110, ['🌸', '✨', '🌼']);
+
+          subHint.textContent = `hoa đã trồng: ${planted}/${total}`;
+
+          if (planted === 1) {
+            typeSentence('Bông đầu tiên nở rồi!', 1200, true);
+          } else if (planted === 2) {
+            typeSentence('Bông thứ hai... nữa', 1200, true);
+          } else if (planted === 3) {
+            meadow.removeEventListener('pointerdown', onMeadowTap);
+            subHint.classList.remove('visible');
+            dialogText.classList.add('blur-out');
+            await wait(350);
+            await typeSentence('Bông cuối cùng, đẹp như Cậu vậy đó', 1700);
+            resolve();
+          }
+        };
+
+        meadow.addEventListener('pointerdown', onMeadowTap);
+      });
+    }
+
+    // --- MÀN 5: Mở 3 ngôi sao điều ước ---
+    async function runStage5() {
+      setProgressDot(4);
+      setTheme('stars');
+
+      await typeSentence('Tớ muốn gửi Cậu ba điều ước nè', 1500);
+      await typeSentence('Cậu chạm vào từng ngôi sao để mở nhé', 500, true);
+
+      await playWishStarsGame();
+
+      piFace.classList.add('happy');
+      await typeSentence('Ba điều ước bay lên trời hết rồi, tớ nghe thấy tiếng vỗ tay đó', 1800);
+      piFace.classList.remove('happy');
+
+      // Ẩn các ngôi sao để chuyển sang màn 6
+      document.querySelectorAll('.wish-star').forEach((s) => s.remove());
+      document.getElementById('line1').classList.remove('drawn');
+      document.getElementById('line2').classList.remove('drawn');
+
+      runStage6();
+    }
+
+    function playWishStarsGame() {
+      return new Promise((resolve) => {
+        const container = document.getElementById('starsContainer');
+        let opened = 0;
+        let busy = false;
+
+        subHint.textContent = 'điều ước: 0/3';
+        subHint.classList.add('visible');
+
+        const starCoords = [
+          { left: '22%', top: '30%' },
+          { left: '48%', top: '20%' },
+          { left: '77%', top: '29%' }
+        ];
+
+        const wishes = [
+          'Chúc Cậu thật nhiều <span class="hl-green">sức khỏe</span>, ăn ngon ngủ kỹ, không ốm vặt nha',
+          'Chúc Cậu luôn <span class="hl-pink">xinh đẹp</span> và tự tin, đi đến đâu cũng tỏa sáng',
+          'Chúc nụ cười của Cậu luôn <span class="hl-green">rạng rỡ</span>, đừng để ai làm nó tắt nhé'
+        ];
+
+        starCoords.forEach((pos, idx) => {
+          const star = document.createElement('div');
+          star.className = 'wish-star';
+          star.style.left = pos.left;
+          star.style.top = pos.top;
+          star.innerHTML = `
+            <svg viewBox="0 0 24 24">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>`;
+
+          setTimeout(() => star.classList.add('show'), idx * 150);
+
+          star.addEventListener('pointerdown', async (e) => {
+            e.stopPropagation();
+            if (star.classList.contains('lit') || busy) return;
+            busy = true;
+            star.classList.add('lit');
+            opened++;
+            playChimeSound(680 + opened * 80);
+            spawnPopIcons(e.clientX, e.clientY, ['⭐', '✨', '🌟']);
+
+            if (opened === 2) document.getElementById('line1').classList.add('drawn');
+            if (opened === 3) document.getElementById('line2').classList.add('drawn');
+
+            subHint.textContent = `điều ước: ${opened}/3`;
+
+            dialogText.classList.add('blur-out');
+            await wait(350);
+            if (opened < 3) {
+              await typeSentence(wishes[opened - 1], 1400, true);
+              busy = false;
+            } else {
+              await typeSentence(wishes[2], 1800);
+              subHint.classList.remove('visible');
+              resolve();
+            }
+          });
+
+          container.appendChild(star);
+        });
+      });
+    }
+
+    // --- MÀN 6 & 7: Giữ chặt cỏ 4 lá nhận lời chúc may mắn ---
+    async function runStage6() {
+      setProgressDot(5);
+      setTheme('clover');
+
+      await typeSentence('À còn nữa, tớ có quà cho Cậu nè', 1500);
+      await typeSentence('Một chiếc <span class="hl-green">cỏ 4 lá</span> tớ giấu mãi mới tìm được á', 1700);
+      await typeSentence('Cậu giữ chặt nó một chút để nhận quà nha', 500, true);
+
+      subHint.textContent = 'giữ chặt (hoặc chạm liên tục)';
+      subHint.classList.add('visible');
+
+      const clover = document.getElementById('cloverWrapper');
+      clover.classList.add('show');
+
+      await waitForCloverHold(clover);
+
+      // Chuyển sang chấm thứ 7 (kết thúc)
+      setProgressDot(6);
+      subHint.classList.remove('visible');
+      clover.classList.remove('show', 'holding');
+
+      // Ẩn mắt Pi một nhịp như trong video khi trao cỏ 4 lá
+      piFace.style.opacity = '0';
+      dialogText.classList.add('blur-out');
+      await wait(450);
+
+      await typeSentence('Nè, cầm lấy đi!', 1400);
+      await typeSentence('Chúc Cậu gặp thật nhiều <span class="hl-green">may mắn</span>, chúc cậu mãi xinh đẹp nhé!', 1800, true);
+
+      // Mắt Pi xuất hiện trở lại
+      piFace.style.opacity = '1';
+    }
+
+    function waitForCloverHold(clover) {
+      return new Promise((resolve) => {
+        let charge = 0;
+        let holdInterval = null;
+        let completed = false;
+
+        const addCharge = (amount, x, y) => {
+          if (completed) return;
+          charge += amount;
+          playChimeSound(520 + charge * 4);
+          spawnPopIcons(x, y, ['🍀', '✨']);
+
+          if (charge >= 100) {
+            completed = true;
+            clearInterval(holdInterval);
+            const rect = clover.getBoundingClientRect();
+            spawnPopIcons(rect.left + 55, rect.top + 55, ['🍀', '🍀', '✨', '💚']);
+            resolve();
+          }
+        };
+
+        clover.addEventListener('pointerdown', (e) => {
+          e.stopPropagation();
+          clover.classList.add('holding');
+          addCharge(25, e.clientX, e.clientY);
+          clearInterval(holdInterval);
+          holdInterval = setInterval(() => {
+            const rect = clover.getBoundingClientRect();
+            addCharge(20, rect.left + 55, rect.top + 55);
+          }, 260);
+        });
+
+        window.addEventListener('pointerup', () => {
+          clover.classList.remove('holding');
+          clearInterval(holdInterval);
+        });
+      });
+    }
+  </script>
+</body>
+</html>
